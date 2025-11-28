@@ -127,11 +127,14 @@ resource "alicloud_security_group_rule" "allow_intranet_egress" {
 # ==============================
 # 7. 数据源：动态查询 Ubuntu 20.04 官方镜像（修复兼容性）
 # ==============================
-data "alicloud_images" "ubuntu_2004" {
-  name_regex  = "^ubuntu_20_04_64"  # 匹配 Ubuntu 20.04 64位
-  most_recent = true                # 优先最新镜像
-  owners      = "system"            # 字符串格式，适配旧版本 Provider
+data "alicloud_images" "centos" {
+  name_regex  = "^centos_7_9_64"  # CentOS 7.9 64位
+  most_recent = true
+  owners      = "system"
+  architecture = "x86_64"
 }
+
+
 
 # ==============================
 # 8. 核心资源：无公网 ECS 实例（密码登录）
@@ -151,7 +154,9 @@ resource "alicloud_instance" "main" {
   internet_charge_type       = "PayByTraffic"  # 无公网不产生费用
 
   # 镜像 + 密码登录配置（核心修改：取消密钥对，用密码）
-  image_id           = data.alicloud_images.ubuntu_2004.ids[0]  # 动态镜像 ID
+  image_id = length(data.alicloud_images.centos.ids) > 0 ? 
+           data.alicloud_images.centos.ids[0] : 
+           "centos_7_9_64_20G_alibase_20230612.vhd"  
   password           = var.ecs_login_password  # 自定义登录密码
   password_inherit   = false                   # 禁用密码继承（使用自定义密码）
 
