@@ -35,7 +35,7 @@ variable "name_prefix" {
 
 variable "instance_type" {
   type        = string
-  default     = "ecs.t6.small"
+  default     = "ecs.e-c1m1.large"
 }
 
 variable "target_zone_id" {
