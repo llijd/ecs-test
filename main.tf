@@ -134,7 +134,7 @@ resource "alicloud_security_group_rule" "allow_intranet_egress" {
 # ==============================
 # 阿里云 CentOS 7.9 公共镜像（cn-beijing 地域有效，其他地域可替换对应 ImageId）
 data "alicloud_images" "centos" {
-  image_id = "centos_7_9_64_20G_alibase_20250101.vhd"  # 直接指定有效 ImageId
+  image_id = "aliyun_3_arm64_20G_pro_alibase_20250427.vhd"  # 直接指定有效 ImageId
   owners    = "system"  # 官方镜像
 }
 
