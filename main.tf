@@ -128,6 +128,9 @@ resource "alicloud_security_group_rule" "allow_intranet_egress" {
   security_group_id = alicloud_security_group.main.id
   cidr_ip           = "0.0.0.0/0"
 }
+variable "image_id" {
+  default = "ubuntu_22_04_x64_20G_alibase_20251103.vhd"
+}
 
 
 # ==============================
@@ -147,7 +150,7 @@ resource "alicloud_instance" "main" {
   internet_charge_type       = "PayByTraffic"
 
   # 镜像配置：直接引用 100% 有效镜像（避免不存在）
-  image_id = "aliyun_3_arm64_20G_pro_alibase_20250427.vhd"
+  image_id = var.image_id
 
   # 密码登录配置（CentOS 默认用户名 root）
   password         = var.ecs_login_password
