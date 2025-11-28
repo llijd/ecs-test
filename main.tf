@@ -15,7 +15,7 @@ terraform {
 # ==============================
 provider "alicloud" {
   region = "cn-beijing"  # 按需修改地域
-  # 认证：执行前配置环境变量
+  
   # PowerShell: $env:ALICLOUD_ACCESS_KEY="你的AK"; $env:ALICLOUD_SECRET_KEY="你的SK"
 }
 
