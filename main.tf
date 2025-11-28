@@ -154,9 +154,7 @@ resource "alicloud_instance" "main" {
   internet_charge_type       = "PayByTraffic"  # 无公网不产生费用
 
   # 镜像 + 密码登录配置（核心修改：取消密钥对，用密码）
-  image_id = length(data.alicloud_images.centos.ids) > 0 ? 
-           data.alicloud_images.centos.ids[0] : 
-           "centos_7_9_64_20G_alibase_20230612.vhd"  
+ image_id = length(data.alicloud_images.centos.ids) > 0 ? data.alicloud_images.centos.ids[0] : "centos_7_9_64_20G_alibase_20230612.vhd"
   password           = var.ecs_login_password  # 自定义登录密码
   password_inherit   = false                   # 禁用密码继承（使用自定义密码）
 
