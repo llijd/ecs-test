@@ -129,14 +129,6 @@ resource "alicloud_security_group_rule" "allow_intranet_egress" {
   cidr_ip           = "0.0.0.0/0"
 }
 
-# ==============================
-# 7. 数据源：查询 100% 有效镜像（用 ImageId 而非名称，避免不存在）
-# ==============================
-# 阿里云 CentOS 7.9 公共镜像（cn-beijing 地域有效，其他地域可替换对应 ImageId）
-data "alicloud_images" "centos" {
-  image_id = "aliyun_3_arm64_20G_pro_alibase_20250427.vhd"  # 直接指定有效 ImageId
-  owners    = "system"  # 官方镜像
-}
 
 # ==============================
 # 8. 核心资源：ECS 实例（修复镜像 ID 和安全组规则）
@@ -155,7 +147,7 @@ resource "alicloud_instance" "main" {
   internet_charge_type       = "PayByTraffic"
 
   # 镜像配置：直接引用 100% 有效镜像（避免不存在）
-  image_id = data.alicloud_images.centos.id
+  image_id = aliyun_3_arm64_20G_pro_alibase_20250427.vhd
 
   # 密码登录配置（CentOS 默认用户名 root）
   password         = var.ecs_login_password
