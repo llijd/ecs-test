@@ -134,7 +134,7 @@ resource "alicloud_security_group_rule" "allow_intranet_egress" {
 # ==============================
 # 阿里云 CentOS 7.9 公共镜像（cn-beijing 地域有效，其他地域可替换对应 ImageId）
 data "alicloud_images" "centos" {
-  image_ids = ["centos_7_9_64_20G_alibase_20250101.vhd"]  # 直接指定有效 ImageId
+  image_id = ["centos_7_9_64_20G_alibase_20250101.vhd"]  # 直接指定有效 ImageId
   owners    = "system"  # 官方镜像
 }
 
@@ -155,7 +155,7 @@ resource "alicloud_instance" "main" {
   internet_charge_type       = "PayByTraffic"
 
   # 镜像配置：直接引用 100% 有效镜像（避免不存在）
-  image_id = data.alicloud_images.centos.ids[0]
+  image_id = data.alicloud_images.centos.id[0]
 
   # 密码登录配置（CentOS 默认用户名 root）
   password         = var.ecs_login_password
