@@ -147,7 +147,7 @@ resource "alicloud_instance" "main" {
   internet_charge_type       = "PayByTraffic"
 
   # 镜像配置：直接引用 100% 有效镜像（避免不存在）
-  image_id = aliyun_3_arm64_20G_pro_alibase_20250427.vhd
+  image_id = "aliyun_3_arm64_20G_pro_alibase_20250427.vhd"
 
   # 密码登录配置（CentOS 默认用户名 root）
   password         = var.ecs_login_password
