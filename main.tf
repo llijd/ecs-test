@@ -30,7 +30,7 @@ variable "ecs_login_password" {
 
 variable "name_prefix" {
   type        = string
-  default     = "ecs-intranet-password"
+  default     = "test"
 }
 
 variable "instance_type" {
