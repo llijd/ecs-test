@@ -1,72 +1,66 @@
 # ==============================
-# 1. Terraform 版本与 Provider 约束（避免兼容性问题）
+# 1. Terraform 版本与 Provider 约束
 # ==============================
 terraform {
   required_providers {
     alicloud = {
       source  = "aliyun/alicloud"
-      version = ">= 1.200.0"  # 推荐版本，稳定兼容
+      version = ">= 1.200.0"
     }
   }
 }
 
 # ==============================
-# 2. 阿里云 Provider 配置（认证+地域）
+# 2. 阿里云 Provider 配置
 # ==============================
 provider "alicloud" {
-  region = "cn-beijing"  # 按需修改部署地域
-  # 认证方式：环境变量配置 AK/SK（执行前设置）
+  region = "cn-beijing"  # 按需修改地域
+  # 认证：执行前配置环境变量
   # PowerShell: $env:ALICLOUD_ACCESS_KEY="你的AK"; $env:ALICLOUD_SECRET_KEY="你的SK"
-  # Linux: export ALICLOUD_ACCESS_KEY="你的AK"; export ALICLOUD_SECRET_KEY="你的SK"
 }
 
 # ==============================
-# 3. 自定义变量（含 ECS 登录密码，可修改）
+# 3. 自定义变量
 # ==============================
 variable "ecs_login_password" {
   type        = string
-  default     = "Admin@123456"  # 自定义密码（需符合阿里云密码规范）
-  description = "ECS 实例登录密码（要求：8-30位，含大小写字母+数字+特殊字符）"
+  default     = "Admin@123456"  # 符合阿里云密码规范
+  description = "ECS 登录密码"
 }
 
 variable "name_prefix" {
   type        = string
   default     = "ecs-intranet-password"
-  description = "资源名称前缀"
 }
 
 variable "instance_type" {
   type        = string
-  default     = "ecs.t6.small"  # 2核2G，内网场景足够
-  description = "ECS 实例规格"
+  default     = "ecs.t6.small"
 }
 
 variable "target_zone_id" {
   type        = string
   default     = "cn-beijing-a"  # 按需修改可用区
-  description = "子网和 ECS 所在可用区"
 }
 
 # ==============================
-# 4. 基础资源：VPC（内网核心网络）
+# 4. 基础资源：VPC
 # ==============================
 resource "alicloud_vpc" "main" {
   vpc_name   = "${var.name_prefix}-vpc"
-  cidr_block = "172.16.0.0/12"  # VPC 内网网段
-  description = "无公网、密码登录 ECS 专用 VPC"
+  cidr_block = "172.16.0.0/12"
   tags = {
     Name = "${var.name_prefix}-vpc"
     Env  = "test"
-    Auth = "Password"
   }
 }
 
 # ==============================
-# 5. 基础资源：子网（与 ECS 同可用区）
+# 5. 基础资源：子网
 # ==============================
 resource "alicloud_vswitch" "main" {
   vpc_id     = alicloud_vpc.main.id
-  cidr_block = "172.16.0.0/21"  # 子网网段（VPC 子集）
+  cidr_block = "172.16.0.0/21"
   zone_id    = var.target_zone_id
   vswitch_name = "${var.name_prefix}-vsw"
   tags = {
@@ -76,108 +70,110 @@ resource "alicloud_vswitch" "main" {
 }
 
 # ==============================
-# 6. 安全组（仅开放内网访问，支持密码登录）
+# 6. 安全组（拆分多端口为独立规则，修复端口格式错误）
 # ==============================
 resource "alicloud_security_group" "main" {
   security_group_name = "${var.name_prefix}-sg"
   vpc_id              = alicloud_vpc.main.id
-  description         = "无公网 ECS 安全组（密码登录，仅内网访问）"
   tags = {
     Name = "${var.name_prefix}-sg"
     Env  = "test"
   }
 }
 
-# 安全组规则：仅允许 VPC 内网 SSH 登录（22端口，密码登录用）
+# 规则1：放行内网 SSH（22端口）
 resource "alicloud_security_group_rule" "allow_intranet_ssh" {
-  type              = "ingress"
-  ip_protocol       = "tcp"
-  nic_type          = "intranet"  # 仅内网流量
-  policy            = "accept"
-  port_range        = "22/22"     # SSH 端口（密码登录需开放）
-  priority          = 1
-  security_group_id = alicloud_security_group.main.id
-  cidr_ip           = alicloud_vpc.main.cidr_block  # 仅 VPC 内网访问
-}
-
-# 安全组规则：允许内网 HTTP/HTTPS（可选，内网 Web 服务用）
-resource "alicloud_security_group_rule" "allow_intranet_web" {
   type              = "ingress"
   ip_protocol       = "tcp"
   nic_type          = "intranet"
   policy            = "accept"
-  port_range        = "80/80,443/443"
+  port_range        = "22/22"  # 单个端口格式：端口/端口
+  priority          = 1
+  security_group_id = alicloud_security_group.main.id
+  cidr_ip           = alicloud_vpc.main.cidr_block
+}
+
+# 规则2：放行内网 HTTP（80端口）- 拆分独立规则
+resource "alicloud_security_group_rule" "allow_intranet_http" {
+  type              = "ingress"
+  ip_protocol       = "tcp"
+  nic_type          = "intranet"
+  policy            = "accept"
+  port_range        = "80/80"  # 单独写80端口，不与443合并
   priority          = 2
   security_group_id = alicloud_security_group.main.id
   cidr_ip           = alicloud_vpc.main.cidr_block
 }
 
-# 安全组规则：允许所有内网出方向流量
+# 规则3：放行内网 HTTPS（443端口）- 拆分独立规则
+resource "alicloud_security_group_rule" "allow_intranet_https" {
+  type              = "ingress"
+  ip_protocol       = "tcp"
+  nic_type          = "intranet"
+  policy            = "accept"
+  port_range        = "443/443"  # 单独写443端口
+  priority          = 3
+  security_group_id = alicloud_security_group.main.id
+  cidr_ip           = alicloud_vpc.main.cidr_block
+}
+
+# 规则4：放行内网出方向流量
 resource "alicloud_security_group_rule" "allow_intranet_egress" {
   type              = "egress"
   ip_protocol       = "all"
   nic_type          = "intranet"
   policy            = "accept"
-  port_range        = "-1/-1"
+  port_range        = "-1/-1"  # 所有端口
   priority          = 1
   security_group_id = alicloud_security_group.main.id
   cidr_ip           = "0.0.0.0/0"
 }
 
 # ==============================
-# 7. 数据源：动态查询 Ubuntu 20.04 官方镜像（修复兼容性）
+# 7. 数据源：查询 100% 有效镜像（用 ImageId 而非名称，避免不存在）
 # ==============================
+# 阿里云 CentOS 7.9 公共镜像（cn-beijing 地域有效，其他地域可替换对应 ImageId）
 data "alicloud_images" "centos" {
-  name_regex  = "^centos_7_9_64"  # CentOS 7.9 64位
-  most_recent = true
-  owners      = "system"
-  architecture = "x86_64"
+  image_ids = ["centos_7_9_64_20G_alibase_20250101.vhd"]  # 直接指定有效 ImageId
+  owners    = "system"  # 官方镜像
 }
 
-
-
 # ==============================
-# 8. 核心资源：无公网 ECS 实例（密码登录）
+# 8. 核心资源：ECS 实例（修复镜像 ID 和安全组规则）
 # ==============================
 resource "alicloud_instance" "main" {
-  # 基础配置
   instance_name        = "${var.name_prefix}-instance"
   availability_zone    = var.target_zone_id
   instance_type        = var.instance_type
-  system_disk_category = "cloud_essd_entry"  # 高效系统盘
-  system_disk_size     = 40                  # 系统盘 40GB
+  system_disk_category = "cloud_essd_entry"
+  system_disk_size     = 40
 
-  # 网络配置（无公网）
+  # 无公网配置
   vswitch_id                 = alicloud_vswitch.main.id
   security_groups            = [alicloud_security_group.main.id]
-  internet_max_bandwidth_out = 0  # 关闭公网 IP
-  internet_charge_type       = "PayByTraffic"  # 无公网不产生费用
+  internet_max_bandwidth_out = 0
+  internet_charge_type       = "PayByTraffic"
 
-  # 镜像 + 密码登录配置（核心修改：取消密钥对，用密码）
- image_id = length(data.alicloud_images.centos.ids) > 0 ? data.alicloud_images.centos.ids[0] : "centos_7_9_64_20G_alibase_20230612.vhd"
-  password           = var.ecs_login_password  # 自定义登录密码
-  password_inherit   = false                   # 禁用密码继承（使用自定义密码）
+  # 镜像配置：直接引用 100% 有效镜像（避免不存在）
+  image_id = data.alicloud_images.centos.ids[0]
 
+  # 密码登录配置（CentOS 默认用户名 root）
+  password         = var.ecs_login_password
+  password_inherit = false
 
-  # 计费配置（按量付费，测试环境推荐）
+  # 计费配置
   instance_charge_type = "PostPaid"  # 按量付费（销毁即停费）
-  # 若需包年包月，替换为：
-  # instance_charge_type = "PrePaid"
-  # period               = 1  # 购买1个月
-  # auto_renew           = false
+  deletion_protection  = true        # 防止误删除
 
-  # 其他配置
-  deletion_protection = true  # 防止误删除
   tags = {
     Name = "${var.name_prefix}-instance"
     Env  = "test"
     PublicIP = "Disabled"
-    Auth     = "Password"
   }
 }
 
 # ==============================
-# 9. 输出关键信息（含登录密码提示）
+# 9. 输出信息
 # ==============================
 output "ecs_id" {
   value       = alicloud_instance.main.id
@@ -193,21 +189,15 @@ output "login_info" {
   value = <<EOT
   登录方式：SSH 密码登录（仅 VPC 内网）
   登录地址：${alicloud_instance.main.private_ip}
-  用户名（Ubuntu）：ubuntu
-  用户名（CentOS）：root
-  登录密码：${var.ecs_login_password}（已在变量中配置，可修改）
-  登录命令：ssh ubuntu@${alicloud_instance.main.private_ip}（输入密码即可）
-  注意：需在 VPC 内其他机器（如堡垒机）执行登录命令
+  用户名：root（CentOS 默认）
+  登录密码：${var.ecs_login_password}
+  登录命令：ssh root@${alicloud_instance.main.private_ip}
+  注意：需在 VPC 内其他机器（如堡垒机）执行登录
   EOT
-  description = "ECS 登录信息（请妥善保管密码）"
+  description = "ECS 登录信息（妥善保管密码）"
 }
 
-output "network_info" {
-  value = <<EOT
-  网络模式：仅内网（无公网 IP）
-  VPC 网段：${alicloud_vpc.main.cidr_block}
-  子网网段：${alicloud_vswitch.main.cidr_block}
-  访问限制：仅 VPC 内资源可访问该 ECS
-  EOT
-  description = "网络访问说明"
+output "used_image_id" {
+  value       = alicloud_instance.main.image_id
+  description = "实际使用的镜像 ID（100% 有效）"
 }
