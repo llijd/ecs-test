@@ -154,7 +154,7 @@ resource "alicloud_instance" "main" {
   image_id           = data.alicloud_images.ubuntu_2004.ids[0]  # 动态镜像 ID
   password           = var.ecs_login_password  # 自定义登录密码
   password_inherit   = false                   # 禁用密码继承（使用自定义密码）
-  ignore_password    = false                   # 启用密码登录
+
 
   # 计费配置（按量付费，测试环境推荐）
   instance_charge_type = "PostPaid"  # 按量付费（销毁即停费）
